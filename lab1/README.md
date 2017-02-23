@@ -1,5 +1,7 @@
 # Lab1 Establish Lab Environment
 
+## download [osdi.img](http://grass8.cs.nctu.edu.tw/OSDI2015/lab1/osdi.img) from http://grass8.cs.nctu.edu.tw/OSDI2015/lab1/osdi.img
+
 Bugs
 - `Makefile`: missing separator => need to add a tab
 - `include/string.h`: move function implementation to `lib/string.c`
