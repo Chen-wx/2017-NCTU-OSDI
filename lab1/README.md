@@ -2,6 +2,16 @@
 
 ## download [osdi.img](http://grass8.cs.nctu.edu.tw/OSDI2015/lab1/osdi.img) from http://grass8.cs.nctu.edu.tw/OSDI2015/lab1/osdi.img
 
+Build New Version Qemu(for Ubuntu)
+- git clone git://git.qemu-project.org/qemu.git
+- cd qemu
+- git submodule update --init pixman dtc
+- sudo apt install libncursesw5-dev
+- mkdir build && cd build
+- ./../configure --enable-curses
+- make
+- sudo make install
+
 Bugs
 - `Makefile`: missing separator => need to add a tab
 - `include/string.h`: move function implementation to `lib/string.c`
