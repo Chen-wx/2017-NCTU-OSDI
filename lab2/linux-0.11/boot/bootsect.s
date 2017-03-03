@@ -39,6 +39,8 @@
 	.equ SETUPSEG, 0x9020		# setup starts here
 	.equ SYSSEG, 0x1000		# system loaded at 0x10000 (65536).
 	.equ ENDSEG, SYSSEG + SYSSIZE	# where to stop loading
+	.equ HELLOSEG, 0x0100       # hello starts here
+	.equ HELLOLEN, 1            # nr of hello-sectors
 
 # ROOT_DEV:	0x000 - same type of floppy as boot.
 #		0x301 - first partition on first drive etc
@@ -62,12 +64,62 @@ go:	mov	%cs, %ax
 	mov	%ax, %ss
 	mov	$0xFF00, %sp		# arbitrary value >>512
 
+multiboot:
+    mov $0x03, %ah          # read cursor pos
+    xor %bh, %bh
+    int $0x10
+
+    mov $34, %cx
+    mov $0x0007, %bx        # page 0, attribute 7 (normal)
+    mov $msg_multiboot, %bp
+    mov $0x1301, %ax        # write string, move cursor
+    int $0x10
+
+    mov $0x0, %ah           # set function
+    int $0x16               # read key press
+    cmp $0x31, %al          # if 1 then jump to load_setup
+    je load_setup
+    cmp $0x32, %al          # if 2 then jump to load_hello
+    je load_hello
+
+    # show error msg
+    mov $0x03, %ah          # read cursor pos
+    xor %bh, %bh
+    int $0x10
+
+    mov $29, %cx
+    mov $0x0007, %bx        # page 0, attribute 7 (normal)
+    mov $msg_multiboot_error, %bp
+    mov $0x1301, %ax        # write string, move cursor
+    int $0x10
+    jmp multiboot           # jump to multiboot again
+
+
+load_hello:
+    mov $HELLOSEG, %ax
+    mov %ax, %es            # set es
+    mov $0x0000, %dx        # drive 0, head 0
+    mov $0x0002, %cx        # sector 2, track 0
+    mov $0x0000, %bx        # address = 0, in HELLOSEG
+    .equ AX, 0x0200+HELLOLEN
+    mov $AX, %ax            # service 2, nr of sectors
+    int $0x13               # read it
+    jnc ok_load_hello       # ok - continue
+    mov $0x0000, %dx
+    mov $0x0000, %ax        # reset the diskette
+    int $0x13
+    jmp load_hello          # read again
+ok_load_hello:
+    ljmp $HELLOSEG, $0      # jump to hello
+
 # load the setup-sectors directly after the bootblock.
 # Note that 'es' is already set up.
 
 load_setup:
+	mov $INITSEG, %ax
+	mov %ax, %es			# set es
 	mov	$0x0000, %dx		# drive 0, head 0
-	mov	$0x0002, %cx		# sector 2, track 0
+	mov	$0x0003, %cx		# sector 3, track 0
 	mov	$0x0200, %bx		# address = 512, in INITSEG
 	.equ    AX, 0x0200+SETUPLEN
 	mov     $AX, %ax		# service 2, nr of sectors
@@ -147,7 +199,7 @@ root_defined:
 #
 # in:	es - starting address segment (normally 0x1000)
 #
-sread:	.word 1+ SETUPLEN	# sectors read of current track
+sread:	.word 2 + SETUPLEN	# sectors read of current track
 head:	.word 0			# current head
 track:	.word 0			# current track
 
@@ -248,6 +300,18 @@ msg1:
 	.byte 13,10
 	.ascii "Loading system ..."
 	.byte 13,10,13,10
+
+msg_multiboot:
+    .byte 13, 10
+    .ascii "[1] Load setup"
+    .byte 13, 10
+    .ascii "[2] Load hello"
+    .byte 13, 10
+
+msg_multiboot_error:
+    .byte 13, 10
+    .ascii "You can only press 1 or 2"
+    .byte 13, 10
 
 	.org 508
 root_dev:

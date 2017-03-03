@@ -15,8 +15,12 @@ setup: setup.s
 	@$(LD) $(LDFLAGS) -o setup setup.o
 	@objcopy -R .pdr -R .comment -R.note -S -O binary setup
 
-head.o: head.s
-	@$(AS) -o head.o head.s
+hello: hello.o
+	@$(LD) $(LDFLAGS) -o hello hello.o
+	@objcopy -R .pdr -R .comment -R.note -S -O binary hello
+
+hello.o: hello.s
+	@$(AS) -o hello.o hello.s
 
 clean:
-	@rm -f bootsect bootsect.o setup setup.o head.o
+	@rm -f bootsect bootsect.o setup setup.o head.o hello.o hello
