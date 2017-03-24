@@ -6,7 +6,9 @@ OBJCOPY = objcopy
 OBJDUMP = objdump
 NM = nm
 
-CFLAGS = -m32 -Wall -O -fstrength-reduce -fomit-frame-pointer -finline-functions -nostdinc -fno-builtin 
+LDFLAGS = -m elf_i386
+
+CFLAGS = -m32 -Wall -O0 -fstrength-reduce -fomit-frame-pointer -finline-functions -nostdinc -fno-builtin -fno-stack-protector
 
 # Add debug symbol
 CFLAGS += -g
@@ -16,8 +18,6 @@ CFLAGS += -I.
 OBJDIR = .
 
 
-include boot/Makefile
-include kernel/Makefile
 
 all: boot/boot kernel/system
 	dd if=/dev/zero of=$(OBJDIR)/kernel.img count=10000 2>/dev/null
@@ -25,6 +25,9 @@ all: boot/boot kernel/system
 	dd if=$(OBJDIR)/kernel/system of=$(OBJDIR)/kernel.img seek=1 conv=notrunc 2>/dev/null
 
 clean:
-	rm $(OBJDIR)/boot/*.o $(OBJDIR)/boot/boot.out $(OBJDIR)/boot/boot $(OBJDIR)/boot/boot.asm
-	rm $(OBJDIR)/kernel/*.o $(OBJDIR)/kernel/system* kernel.*
-	rm $(OBJDIR)/lib/*.o
+	rm -f $(OBJDIR)/boot/*.o $(OBJDIR)/boot/boot.out $(OBJDIR)/boot/boot $(OBJDIR)/boot/boot.asm
+	rm -f $(OBJDIR)/kernel/*.o $(OBJDIR)/kernel/system* kernel.*
+	rm -f $(OBJDIR)/lib/*.o
+
+include boot/Makefile
+include kernel/Makefile
