@@ -105,6 +105,12 @@ print_regs(struct PushRegs *regs)
 	cprintf("  eax  0x%08x\n", regs->reg_eax);
 }
 
+static void page_fault_handler(struct Trapframe *tf) {
+    uint32_t fault_va = rcr2();
+    cprintf("[0316320] Page fault @ %p", fault_va);
+    while(1);
+}
+
 static void
 trap_dispatch(struct Trapframe *tf)
 {
@@ -130,6 +136,9 @@ trap_dispatch(struct Trapframe *tf)
             break;
         case IRQ_OFFSET + IRQ_TIMER:
             timer_handler();
+            break;
+        case T_PGFLT:
+            page_fault_handler(tf);
             break;
         default:
             // Unexpected trap: The user process or the kernel has a bug.
@@ -183,6 +192,8 @@ void trap_init()
 	/* Timer Trap setup */
     extern void irq_timer();
     SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, irq_timer, 0);
+    extern void trap_page_fault();
+    SETGATE(idt[T_PGFLT], 0, GD_KT, trap_page_fault, 0);
     /* Load IDT */
     lidt(&idt_pd);
 

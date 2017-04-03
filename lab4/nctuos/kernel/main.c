@@ -19,6 +19,8 @@ void kernel_main(void)
     mem_init();
     /* Enable interrupt */
     __asm __volatile("sti");
+    int *ptr = 0x12345678;
+    *ptr = 0;
 
 	shell();
 }
