@@ -10,8 +10,6 @@
  * the %cr0, %cr4, and %eflags registers, and traps.
  */
 
-#define KSTKSIZE	(8*4096)   		// size of a kernel stack
-
 // Global descriptor numbers
 #define GD_KT     0x08     // kernel text
 #define GD_KD     0x10     // kernel data
@@ -224,7 +222,7 @@ struct Segdesc {
 #ifndef __ASSEMBLER__
 
 // Task state segment format (as described by the Pentium architecture book)
-struct Taskstate {
+struct tss_struct{
 	uint32_t ts_link;	// Old ts selector
 	uintptr_t ts_esp0;	// Stack pointers and segment selectors
 	uint16_t ts_ss0;	//   after an increase in privilege level

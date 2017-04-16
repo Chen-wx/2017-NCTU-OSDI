@@ -25,9 +25,11 @@ all: boot/boot kernel/system
 	dd if=$(OBJDIR)/kernel/system of=$(OBJDIR)/kernel.img seek=1 conv=notrunc 2>/dev/null
 
 clean:
-	rm -f $(OBJDIR)/boot/*.o $(OBJDIR)/boot/boot.out $(OBJDIR)/boot/boot $(OBJDIR)/boot/boot.asm
-	rm -f $(OBJDIR)/kernel/*.o $(OBJDIR)/kernel/system* kernel.*
-	rm -f $(OBJDIR)/lib/*.o
+	rm -rf $(OBJDIR)/boot/*.o $(OBJDIR)/boot/boot.out $(OBJDIR)/boot/boot $(OBJDIR)/boot/boot.asm
+	rm -rf $(OBJDIR)/kernel/*.o $(OBJDIR)/kernel/system* kernel.*
+	rm -rf $(OBJDIR)/lib/*.o
+	rm -rf $(OBJDIR)/user/*.o
+	rm -rf $(OBJDIR)/user/*.asm
 
 run: clean all
 	qemu-system-i386 -hda $(OBJDIR)/kernel.img --curses
