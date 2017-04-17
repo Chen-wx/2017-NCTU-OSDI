@@ -45,6 +45,7 @@ TRAPHANDLER_NOEC(TIM_ISR, IRQ_OFFSET+IRQ_TIMER)
 TRAPHANDLER_NOEC(GPFLT, T_GPFLT)
 TRAPHANDLER_NOEC(STACK_ISR, T_STACK)
 TRAPHANDLER_NOEC(PGFLT, T_PGFLT)
+TRAPHANDLER_NOEC(SYSCALL, T_SYSCALL)
 
 .globl default_trap_handler;
 _alltraps:
@@ -77,9 +78,9 @@ _alltraps:
 # Return falls through to trapret...
 .globl trapret
 trapret:
-    popal
-    popl %es
-    popl %ds
-    addl $0x8, %esp  # trapno and errcode
-    iret
+  popal
+  popl %es
+  popl %ds
+  addl $0x8, %esp  # trapno and errcode
+  iret
 

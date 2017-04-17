@@ -11,7 +11,7 @@ LDFLAGS = -m elf_i386
 CFLAGS = -m32 -Wall -O2 -fstrength-reduce -fomit-frame-pointer -finline-functions -nostdinc -fno-builtin -fno-stack-protector
 
 # Add debug symbol
-#CFLAGS += -g
+CFLAGS += -g
 
 CFLAGS += -I.
 

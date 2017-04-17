@@ -100,12 +100,24 @@ int task_create()
     Task *ts = NULL;
 
     /* Find a free task structure */
+    for(int i = 0 ; i < NR_TASKS ; i++) {
+        if(tasks[i].state == TASK_FREE) {
+            ts = &tasks[i];
+            break;
+        }
+    }
+    if(!ts) return -1;
 
     /* Setup Page Directory and pages for kernel*/
     if (!(ts->pgdir = setupkvm()))
         panic("Not enough memory for per process page directory!\n");
-
     /* Setup User Stack */
+    for(int va = USTACKTOP ; va > USTACKTOP - USR_STACK_SIZE ; va -= PGSIZE) {
+        struct PageInfo *pp = page_alloc(ALLOC_ZERO);
+        if(!pp) return -1;
+        if(page_insert(ts->pgdir, pp, va - PGSIZE, PTE_W | PTE_U) == -1)
+            return -1;
+    }
 
     /* Setup Trapframe */
     memset( &(ts->tf), 0, sizeof(ts->tf));
@@ -117,6 +129,11 @@ int task_create()
     ts->tf.tf_esp = USTACKTOP-PGSIZE;
 
     /* Setup task structure (task_id and parent_id) */
+    ts->task_id = ts - tasks;
+    ts->parent_id = cur_task ? cur_task->task_id : 0;
+    ts->state = TASK_RUNNABLE;
+    ts->remind_ticks = TIME_QUANT;
+    return ts - tasks;
 }
 
 
@@ -139,6 +156,12 @@ int task_create()
  */
 static void task_free(int pid)
 {
+    lcr3(PADDR(kern_pgdir));
+    for(int va = USTACKTOP ; va > USTACKTOP - USR_STACK_SIZE ; va -= PGSIZE) {
+        page_remove(tasks[pid].pgdir, va - PGSIZE);
+    }
+    ptable_remove(tasks[pid].pgdir);
+    pgdir_remove(tasks[pid].pgdir);
 }
 
 void sys_kill(int pid)
@@ -150,6 +173,9 @@ void sys_kill(int pid)
          * Free the memory
          * and invoke the scheduler for yield
          */
+        tasks[pid].state = TASK_FREE;
+        task_free(pid);
+        sched_yield();
     }
 }
 
@@ -180,16 +206,32 @@ void sys_kill(int pid)
 int sys_fork()
 {
     /* pid for newly created process */
-    int pid;
+    int pid = task_create();
+    if(pid == -1) return -1;
     if ((uint32_t)cur_task)
     {
         /* Step 4: All user program use the same code for now */
+        tasks[pid].tf = cur_task->tf;
+        for(int va = USTACKTOP ; va > USTACKTOP - USR_STACK_SIZE ; va -= PGSIZE) {
+            pte_t *pte_src, *pte_dst;
+            if(!(pte_dst = pgdir_walk(tasks[pid].pgdir, va - PGSIZE, 0)))
+                panic("dst stack does not exist\n");
+            if(!(*pte_dst & PTE_P))
+                panic("dst stack page does not present\n");
+            if(!(pte_src = pgdir_walk(cur_task->pgdir, va - PGSIZE, 0)))
+                panic("src stack does not exist\n");
+            if(!(*pte_src & PTE_P))
+                panic("src stack page does not present\n");
+            memcpy(KADDR(PTE_ADDR(*pte_dst)), KADDR(PTE_ADDR(*pte_src)), PGSIZE);
+        }
         setupvm(tasks[pid].pgdir, (uint32_t)UTEXT_start, UTEXT_SZ);
         setupvm(tasks[pid].pgdir, (uint32_t)UDATA_start, UDATA_SZ);
         setupvm(tasks[pid].pgdir, (uint32_t)UBSS_start, UBSS_SZ);
         setupvm(tasks[pid].pgdir, (uint32_t)URODATA_start, URODATA_SZ);
-
+        cur_task->tf.tf_regs.reg_eax = pid;
+        tasks[pid].tf.tf_regs.reg_eax = 0;
     }
+    return pid;
 }
 
 /* TODO: Lab5

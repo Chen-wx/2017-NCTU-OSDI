@@ -272,6 +272,7 @@ page_init(void)
             pages[i].pp_ref = 0;
             pages[i].pp_link = page_free_list;
             page_free_list = &pages[i];
+            num_free_pages++;
         } else if(i < (EXTPHYSMEM / PGSIZE)) {
             pages[i].pp_ref = 1;
             pages[i].pp_link = NULL;
@@ -283,6 +284,7 @@ page_init(void)
                 pages[i].pp_ref = 0;
                 pages[i].pp_link = page_free_list;
                 page_free_list = &pages[i];
+                num_free_pages++;
             }
         }
     }
@@ -315,6 +317,7 @@ page_alloc(int alloc_flags)
     }
     // change free page link of current page to NULL
     pp->pp_link = NULL;
+    num_free_pages--;
     return pp;
 }
 
@@ -336,6 +339,7 @@ page_free(struct PageInfo *pp)
     // return current page to page_free_list
     pp->pp_link = page_free_list;
     page_free_list = pp;
+    num_free_pages++;
 }
 
 //
@@ -492,7 +496,7 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
     // if pte is NULL or pte doesn't exist then return NULL
     if(!pte || !(*pte & PTE_P)) return NULL;
     // if pte_store isn't NULL then store it
-    if(*pte_store) *pte_store = pte;
+    if(pte_store) *pte_store = pte;
     // return physical addr from pte
     return pa2page(PTE_ADDR(*pte));
 }
@@ -575,6 +579,16 @@ setupvm(pde_t *pgdir, uint32_t start, uint32_t size)
 pde_t *
 setupkvm()
 {
+    struct PageInfo *pp = page_alloc(ALLOC_ZERO);
+    pde_t *pgdir = NULL;
+    if(pp){
+        pgdir = page2kva(pp);
+        boot_map_region(pgdir, UPAGES, ROUNDUP((sizeof(struct PageInfo) * npages), PGSIZE), PADDR(pages), PTE_U);
+        boot_map_region(pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
+        boot_map_region(pgdir, KERNBASE, -KERNBASE, 0, PTE_W);
+        boot_map_region(pgdir, IOPHYSMEM, ROUNDUP((EXTPHYSMEM - IOPHYSMEM), PGSIZE), IOPHYSMEM, PTE_W);
+    }
+    return pgdir;
 }
 
 

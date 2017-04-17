@@ -32,10 +32,12 @@ void kernel_main(void)
     syscall_init();
 
 
+    task_init();
     /* Enable interrupt */
     __asm __volatile("sti");
 
     lcr3(PADDR(cur_task->pgdir));
+
 
     /* Move to user mode */
     asm volatile(
