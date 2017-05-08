@@ -17,6 +17,8 @@ CFLAGS += -I.
 
 OBJDIR = .
 
+CPUS ?= 1
+
 
 
 all: boot/boot kernel/system
@@ -32,10 +34,10 @@ clean:
 	rm -rf $(OBJDIR)/user/*.asm
 
 run: clean all
-	qemu-system-i386 -hda $(OBJDIR)/kernel.img --curses
+	qemu-system-i386 -hda $(OBJDIR)/kernel.img --curses -smp $(CPUS)
 
 debug: clean all
-	qemu-system-i386 -hda $(OBJDIR)/kernel.img --curses -s -S
+	qemu-system-i386 -hda $(OBJDIR)/kernel.img --curses -s -S -smp $(CPUS)
 
 include boot/Makefile
 include kernel/Makefile

@@ -15,13 +15,15 @@ int mem_stat(int argc, char **argv);
 int print_tick(int argc, char **argv);
 int chgcolor(int argc, char **argv);
 int forktest(int argc, char **argv);
+int spinlocktest(int argc, char **argv);
 
 struct Command commands[] = {
     { "help", "Display this list of commands", mon_help },
     { "mem_stat", "Show current usage of physical memory", mem_stat },
     { "print_tick", "Display system tick", print_tick },
     { "chgcolor", "Change screen text color", chgcolor },
-    { "forktest", "Test functionality of fork()", forktest }
+    { "forktest", "Test functionality of fork()", forktest },
+    { "spinlocktest", "Test spinlock", spinlocktest }
 };
 const int NCOMMANDS = (sizeof(commands)/sizeof(commands[0]));
 
@@ -108,15 +110,17 @@ static int runcmd(char *buf)
 
 void task_job()
 {
-    int pid = 0;
-    int i;
+	int pid = 0;
+	int cid = 0;
+	int i;
 
-    pid = getpid();
-    for (i = 0; i < 10; i++)
-    {
-        cprintf("Im %d, now=%d\n", pid, i);
-        sleep(100);
-    }
+	pid = getpid();
+	cid = getcid();
+	for (i = 0; i < 5; i++)
+	{
+		cprintf("Pid=%d, Cid=%d, now=%d\n", pid, cid, i);
+		sleep(100);
+	}
 }
 
 int forktest(int argc, char **argv)
@@ -142,6 +146,23 @@ int forktest(int argc, char **argv)
     }
     /* task recycle */
     kill_self();
+    return 0;
+}
+
+int spinlocktest(int argc, char **argv)
+{
+    /* Below code is running on user mode */
+    if (!fork())
+    {
+        /*Child*/
+        fork();
+        fork();
+        fork();
+        sleep(500);
+        cprintf("Pid=%d, Cid=%d %d\n", getpid(), getcid(), get_ticks());
+        /* task recycle */
+        kill_self();
+    }
     return 0;
 }
 

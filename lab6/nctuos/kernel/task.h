@@ -29,6 +29,21 @@ typedef struct
 	
 } Task;
 
+// TODO Lab6
+// 
+// Design your Runqueue structure for cpu
+// your runqueue sould have at least two
+// variables:
+//
+// 1. an index for Round-robin scheduling
+//
+// 2. a list indicate the tasks in the runqueue
+//
+typedef struct
+{
+
+} Runqueue;
+
 void task_init();
 void env_pop_tf(struct Trapframe *tf);
 
