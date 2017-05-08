@@ -82,6 +82,10 @@ int32_t getpid(void) {
     return syscall(SYS_getpid, 0, 0, 0, 0, 0);
 }
 
+int32_t getcid(void) {
+    return syscall(SYS_getcid, 0, 0, 0, 0, 0);
+}
+
 void kill_self() {
     syscall(SYS_kill, 0, 0, 0, 0, 0);
 }

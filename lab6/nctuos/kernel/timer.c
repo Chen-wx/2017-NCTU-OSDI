@@ -2,9 +2,9 @@
 #include <kernel/trap.h>
 #include <kernel/picirq.h>
 #include <kernel/task.h>
-#include <kernel/cpu.h>
 #include <inc/mmu.h>
 #include <inc/x86.h>
+#include <kernel/cpu.h>
 
 #define TIME_HZ 100
 
@@ -33,9 +33,9 @@ void timer_handler(struct Trapframe *tf)
 
     extern Task tasks[];
 
-    extern Task *cur_task;
-
-    if (cur_task != NULL)
+    /*extern Task *cur_task;*/
+    lapic_eoi();
+    if (thiscpu->cpu_task != NULL)
     {
         /* TODO: Lab 5
          * 1. Maintain the status of slept tasks
@@ -47,16 +47,17 @@ void timer_handler(struct Trapframe *tf)
          * 4. sched_yield() if the time is up for current task
          *
          */
-        for(int i = 0 ; i < NR_TASKS ; i++) {
-            if(tasks[i].state == TASK_SLEEP) {
-                tasks[i].remind_ticks--;
-                if(tasks[i].remind_ticks <= 0)
-                    tasks[i].state = TASK_RUNNABLE;
+        for(int i = 0 ; i < thiscpu->cpu_rq.total ; i++) {
+            int task_id = thiscpu->cpu_rq.runq[i];
+            if(tasks[task_id].state == TASK_SLEEP) {
+                tasks[task_id].remind_ticks--;
+                if(tasks[task_id].remind_ticks <= 0)
+                    tasks[task_id].state = TASK_RUNNABLE;
             }
         }
-        cur_task->remind_ticks--;
-        if(cur_task->remind_ticks <= 0) {
-            cur_task->state = TASK_RUNNABLE;
+        thiscpu->cpu_task->remind_ticks--;
+        if(thiscpu->cpu_task->remind_ticks <= 0) {
+            thiscpu->cpu_task->state = TASK_RUNNABLE;
             sched_yield();
         }
     }

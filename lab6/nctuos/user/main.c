@@ -4,7 +4,6 @@
 
 int user_entry()
 {
-
     asm volatile("movl %0,%%eax\n\t" \
             "movw %%ax,%%ds\n\t" \
             "movw %%ax,%%es\n\t" \

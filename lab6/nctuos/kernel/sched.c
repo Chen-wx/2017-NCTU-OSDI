@@ -1,5 +1,6 @@
 #include <kernel/task.h>
 #include <inc/x86.h>
+#include <kernel/cpu.h>
 
 #define ctx_switch(ts) \
   do { env_pop_tf(&((ts)->tf)); } while(0)
@@ -19,6 +20,7 @@
 * 4. CONTEXT SWITCH, leverage the macro ctx_switch(ts)
 *    Please make sure you understand the mechanism.
 */
+//
 // TODO: Lab6
 // Modify your Round-robin scheduler to fit the multi-core
 // You should:
@@ -39,20 +41,20 @@
 //
 void sched_yield(void)
 {
+    static int cnt = 0;
 	extern Task tasks[];
-	extern Task *cur_task;
-    int next_task_id = -1;
-    for(int i = (cur_task - tasks + 1) % NR_TASKS ; i != (cur_task - tasks) ; i == NR_TASKS - 1 ? (i = 0) : (++i)) {
-        if(tasks[i].state == TASK_RUNNABLE) {
-            next_task_id = i;
-            break;
+    int size = thiscpu->cpu_rq.total;
+    int runq_id = thiscpu->cpu_task ? thiscpu->cpu_rq.current_index : 0;
+    for(int i = 0 ; i < thiscpu->cpu_rq.total ; i++){
+        runq_id = (runq_id + 1) % thiscpu->cpu_rq.total;
+        int task_id = thiscpu->cpu_rq.runq[runq_id];
+        if(tasks[task_id].state == TASK_RUNNABLE){
+            thiscpu->cpu_task = &(tasks[task_id]);
+            thiscpu->cpu_task->state = TASK_RUNNING;
+            thiscpu->cpu_task->remind_ticks = TIME_QUANT;
+            thiscpu->cpu_rq.current_index = runq_id;
+            lcr3(PADDR(thiscpu->cpu_task->pgdir));
+            ctx_switch(thiscpu->cpu_task);
         }
     }
-    if(next_task_id == -1)
-        next_task_id = cur_task - tasks;
-    cur_task = &(tasks[next_task_id]);
-    cur_task->remind_ticks = TIME_QUANT;
-    cur_task->state = TASK_RUNNING;
-    lcr3(PADDR(cur_task->pgdir));
-    ctx_switch(cur_task);
 }

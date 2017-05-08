@@ -3,7 +3,7 @@
 
 #include <inc/trap.h>
 #include <kernel/mem.h>
-#define NR_TASKS	10
+#define NR_TASKS	32
 #define TIME_QUANT	100
 
 typedef enum
@@ -22,6 +22,7 @@ typedef struct
 {
 	int task_id;
 	int parent_id;
+    int cpu_id;
 	struct Trapframe tf; //Saved registers
 	int32_t remind_ticks;
 	TaskState state;	//Task state
@@ -41,10 +42,14 @@ typedef struct
 //
 typedef struct
 {
-
+    int total;
+    int current_index;
+    int runq[NR_TASKS];
 } Runqueue;
 
+
 void task_init();
+void task_init_percpu();
 void env_pop_tf(struct Trapframe *tf);
 
 /* TODO Lab 5

@@ -9,6 +9,7 @@
 #include <kernel/mem.h>
 #include <kernel/kclock.h>
 #include <kernel/cpu.h>
+#include <kernel/spinlock.h>
 
 // These variables are set by i386_detect_memory()
 size_t npages;			// Amount of physical memory (in pages)
@@ -19,6 +20,7 @@ static char *nextfree;	// virtual address of next byte of free memory
 pde_t *kern_pgdir;		// Kernel's initial page directory
 struct PageInfo *pages;		// Physical page state array
 static struct PageInfo *page_free_list;	// Free list of physical pages
+struct spinlock page_free_list_lock;
 size_t num_free_pages;
 
 // --------------------------------------------------------------
@@ -121,6 +123,7 @@ boot_alloc(uint32_t n)
 void
 mem_init(void)
 {
+    spin_initlock(&page_free_list_lock);
 	uint32_t cr0;
     nextfree = 0;
     page_free_list = 0;
@@ -256,6 +259,12 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	// TODO:
 	// Lab6: Your code here:
+    int kernel_stack_top = KSTACKTOP;
+    for(int i = 0 ; i < NCPU ; i++){
+        boot_map_region(kern_pgdir, kernel_stack_top - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W | PTE_P);
+        kernel_stack_top -= KSTKSIZE;
+        kernel_stack_top -= KSTKGAP;
+    }
 }
 
 // --------------------------------------------------------------
@@ -300,7 +309,7 @@ page_init(void)
 	 */
     page_free_list = NULL;
     for (int i = 0; i < npages; i++) {
-        if(i == 0) {
+        if(i == 0 || i == PGNUM(MPENTRY_PADDR)) {
             pages[i].pp_ref = 1;
             pages[i].pp_link = NULL;
         } else if(i < npages_basemem) {
@@ -342,7 +351,11 @@ page_alloc(int alloc_flags)
 {
     /* TODO */
     // if not free page then return NULL
-    if(!page_free_list) return NULL;
+    spin_lock(&page_free_list_lock);
+    if(!page_free_list){
+        spin_unlock(&page_free_list_lock);
+        return NULL;
+    }
     struct PageInfo *pp = page_free_list;
     // remove current page from page_free_list
     page_free_list = page_free_list->pp_link;
@@ -353,6 +366,7 @@ page_alloc(int alloc_flags)
     // change free page link of current page to NULL
     pp->pp_link = NULL;
     num_free_pages--;
+    spin_unlock(&page_free_list_lock);
     return pp;
 }
 
@@ -372,9 +386,11 @@ page_free(struct PageInfo *pp)
     // pp_link must be NULL 
     assert(pp->pp_link == NULL);
     // return current page to page_free_list
+    spin_lock(&page_free_list_lock);
     pp->pp_link = page_free_list;
     page_free_list = pp;
     num_free_pages++;
+    spin_unlock(&page_free_list_lock);
 }
 
 //
@@ -631,7 +647,10 @@ mmio_map_region(physaddr_t pa, size_t size)
 	//
 	// Lab6 TODO
 	// Your code here:
-    panic("mmio_map_region not implemented");
+    boot_map_region(kern_pgdir, base, ROUNDUP(size, PGSIZE), pa, PTE_PCD | PTE_PWT | PTE_W);
+    uintptr_t mp_base = base;
+    base += ROUNDUP(size, PGSIZE);
+    return mp_base;
 }
 
 /* This is a simple wrapper function for mapping user program */
@@ -658,12 +677,28 @@ setupkvm()
 {
     struct PageInfo *pp = page_alloc(ALLOC_ZERO);
     pde_t *pgdir = NULL;
+    extern uint32_t * lapic;
+    extern physaddr_t lapicaddr;
     if(pp){
         pgdir = page2kva(pp);
-        boot_map_region(pgdir, UPAGES, ROUNDUP((sizeof(struct PageInfo) * npages), PGSIZE), PADDR(pages), PTE_U);
-        boot_map_region(pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
-        boot_map_region(pgdir, KERNBASE, -KERNBASE, 0, PTE_W);
-        boot_map_region(pgdir, IOPHYSMEM, ROUNDUP((EXTPHYSMEM - IOPHYSMEM), PGSIZE), IOPHYSMEM, PTE_W);
+        for(int i = 0 ; i < 1024 ; i++){
+            pgdir[i] = kern_pgdir[i];
+        }
+        for(int i = 0 ; i < 1024 ; i++){
+            if(pgdir[i] & PTE_P){
+                pa2page(PTE_ADDR(pgdir[i]))->pp_ref++;
+            }
+        }
+        /*boot_map_region(pgdir, UPAGES, ROUNDUP((sizeof(struct PageInfo) * npages), PGSIZE), PADDR(pages), PTE_U);*/
+        /*boot_map_region(pgdir, KERNBASE, -KERNBASE, 0, PTE_W);*/
+        /*boot_map_region(pgdir, IOPHYSMEM, ROUNDUP((EXTPHYSMEM - IOPHYSMEM), PGSIZE), IOPHYSMEM, PTE_W);*/
+        /*boot_map_region(pgdir, lapic, PGSIZE, lapicaddr, PTE_PCD | PTE_PWT | PTE_W);*/
+        /*int kernel_stack_top = KSTACKTOP;*/
+        /*for(int i = 0 ; i < NCPU ; i++){*/
+            /*boot_map_region(pgdir, kernel_stack_top - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W | PTE_P);*/
+            /*kernel_stack_top -= KSTKSIZE;*/
+            /*kernel_stack_top -= KSTKGAP;*/
+        /*}*/
     }
     return pgdir;
 }
